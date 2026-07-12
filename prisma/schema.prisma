@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum RoleCode {
+  EMPLOYEE
+  MANAGER
+  INNOVATION_AGENT
+  ADMINISTRATOR
+  IP_MANAGER
+}
+
+model User {
+  id                 String       @id @default(uuid()) @db.Uuid
+  identityProviderId String       @unique
+  email              String       @unique
+  status             UserStatus   @default(ACTIVE)
+  profile            Profile?
+  roles              UserRole[]   @relation("RoleOwner")
+  assignedRoles      UserRole[]   @relation("RoleAssigner")
+  auditEvents        AuditEvent[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model Profile {
+  userId      String  @id @db.Uuid
+  displayName String
+  department  String?
+  locale      String  @default("de-DE")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Role {
+  id          String     @id @default(uuid()) @db.Uuid
+  code        RoleCode   @unique
+  displayName String
+  users       UserRole[]
+}
+
+model UserRole {
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  assignedBy String?  @db.Uuid
+  assignedAt DateTime @default(now())
+  user       User     @relation("RoleOwner", fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  assigner   User?    @relation("RoleAssigner", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+}

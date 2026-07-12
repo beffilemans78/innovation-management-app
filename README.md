@@ -14,7 +14,9 @@ Secure, browser-based foundation for an extensible innovation management platfor
 1. Copy `.env.example` to `.env.local` and replace all secrets.
 2. Start PostgreSQL and Keycloak with `docker compose up -d`.
 3. Configure the `innovation` realm and the `innovation-app` OIDC client in Keycloak.
-4. Run `npx prisma generate` and `npm run dev`.
+4. Run `npx prisma generate`, `npx prisma db push` and `npm run dev`.
+
+Set `BOOTSTRAP_ADMIN_EMAIL` to the verified email address of the initial administrator. Remove it after the administrator has logged in once.
 
 Never use the development credentials from `compose.yaml` in production.
 

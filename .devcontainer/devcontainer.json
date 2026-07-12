@@ -1,0 +1,20 @@
+{
+  "name": "Innovation Management App",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [3000, 8080, 8025],
+  "portsAttributes": {
+    "3000": { "label": "Innovation App", "onAutoForward": "openPreview", "visibility": "public" },
+    "8080": { "label": "Keycloak", "onAutoForward": "silent", "visibility": "public" },
+    "8025": { "label": "Development Mailbox", "onAutoForward": "silent", "visibility": "private" }
+  },
+  "postCreateCommand": "npm install && npx prisma generate",
+  "postStartCommand": "bash scripts/start-codespace.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["Prisma.prisma", "dbaeumer.vscode-eslint"]
+    }
+  }
+}

@@ -19,7 +19,11 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in .env}
-    ports: ["127.0.0.1:8080:8080"]
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      KC_HOSTNAME: ${KEYCLOAK_URL:-http://localhost:8080}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+    ports: ["8080:8080"]
     volumes: ["./keycloak/import:/opt/keycloak/data/import:ro"]
     depends_on:
       mailpit:
@@ -28,7 +32,7 @@ services:
     image: axllent/mailpit:v1.27
     ports:
       - "127.0.0.1:1025:1025"
-      - "127.0.0.1:8025:8025"
+      - "8025:8025"
 
 volumes:
   postgres_data:

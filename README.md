@@ -30,6 +30,19 @@ Set `BOOTSTRAP_ADMIN_EMAIL` to the verified email address of the initial adminis
 
 The local Mailpit inbox is a development tool only. Configure authenticated TLS SMTP before any external test or production deployment.
 
+## Test in GitHub Codespaces
+
+1. Open the repository on GitHub and select **Code → Codespaces → Create codespace on main**.
+2. Wait for the setup to finish. PostgreSQL, Keycloak, Mailpit and the Next.js app start automatically.
+3. Open the forwarded port named **Innovation App** or use the URL printed in the terminal.
+4. Register with `admin@example.com` unless a repository Codespaces secret named `BOOTSTRAP_ADMIN_EMAIL` has been configured.
+5. Open the private forwarded port named **Development Mailbox** to verify the email.
+6. Configure TOTP when Keycloak prompts for a second factor.
+
+For a personalized initial administrator, add `BOOTSTRAP_ADMIN_EMAIL` under **Repository Settings → Secrets and variables → Codespaces** before creating the Codespace. Optional Codespaces secrets `AUTH_SECRET`, `KEYCLOAK_CLIENT_SECRET`, and `KEYCLOAK_ADMIN_PASSWORD` prevent credentials from changing when the Codespace restarts.
+
+Ports 3000 and 8080 are public only for this ephemeral test environment. Stop or delete the Codespace after testing. Do not use this setup as production hosting.
+
 Never use the development credentials from `compose.yaml` in production.
 
 ## Getting Started

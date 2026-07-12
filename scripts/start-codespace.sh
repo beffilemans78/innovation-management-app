@@ -36,7 +36,24 @@ umask 077
   printf 'KEYCLOAK_URL=%s\n' "$keycloak_url"
 } > .env.local
 
+echo "Waiting for the Codespaces Docker daemon..."
+until docker info >/dev/null 2>&1; do sleep 2; done
+
 docker compose --env-file .env.local up -d
+
+if ! pgrep -f "next dev" >/dev/null; then
+  nohup npm run dev > /tmp/innovation-app.log 2>&1 &
+fi
+
+echo "Waiting for the Next.js server..."
+until curl --fail --silent http://localhost:3000/login >/dev/null; do
+  if ! pgrep -f "next dev" >/dev/null; then
+    echo "Next.js stopped unexpectedly. Log output:"
+    tail -100 /tmp/innovation-app.log || true
+    exit 1
+  fi
+  sleep 2
+done
 
 echo "Waiting for PostgreSQL..."
 until docker compose exec -T postgres pg_isready -U innovation >/dev/null 2>&1; do sleep 2; done
@@ -45,10 +62,6 @@ echo "Waiting for Keycloak..."
 until curl --fail --silent "http://localhost:8080/realms/innovation/.well-known/openid-configuration" >/dev/null; do sleep 3; done
 
 npx prisma db push
-
-if ! pgrep -f "next dev" >/dev/null; then
-  nohup npm run dev > /tmp/innovation-app.log 2>&1 &
-fi
 
 echo ""
 echo "Innovation App: $app_url/login"

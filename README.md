@@ -13,10 +13,22 @@ Secure, browser-based foundation for an extensible innovation management platfor
 
 1. Copy `.env.example` to `.env.local` and replace all secrets.
 2. Start PostgreSQL and Keycloak with `docker compose up -d`.
-3. Configure the `innovation` realm and the `innovation-app` OIDC client in Keycloak.
+3. Start the services. The `innovation` realm and OIDC client are imported automatically.
 4. Run `npx prisma generate`, `npx prisma db push` and `npm run dev`.
 
 Set `BOOTSTRAP_ADMIN_EMAIL` to the verified email address of the initial administrator. Remove it after the administrator has logged in once.
+
+## First administrator login
+
+1. Generate independent random values for `AUTH_SECRET`, `KEYCLOAK_ADMIN_PASSWORD` and `KEYCLOAK_CLIENT_SECRET`.
+2. Use the same client-secret value for `AUTH_KEYCLOAK_SECRET` and `KEYCLOAK_CLIENT_SECRET`.
+3. Set `BOOTSTRAP_ADMIN_EMAIL` to the intended administrator's email address.
+4. Start the stack with `docker compose --env-file .env.local up -d`.
+5. Open `http://localhost:3000/login`, register and verify the email using Mailpit at `http://localhost:8025`.
+6. Configure the authenticator app when prompted. The user receives `EMPLOYEE` and `ADMINISTRATOR`.
+7. Remove `BOOTSTRAP_ADMIN_EMAIL` and restart the app after the first successful login.
+
+The local Mailpit inbox is a development tool only. Configure authenticated TLS SMTP before any external test or production deployment.
 
 Never use the development credentials from `compose.yaml` in production.
 

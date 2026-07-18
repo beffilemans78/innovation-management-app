@@ -69,12 +69,133 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       return { x: Math.cos(angle) * radial, y, z: Math.sin(angle) * radial };
     }).filter((point) => point.z > -0.2);
 
+    function createBeadSprite(strand: number, blurLevel: number) {
+      const sprite = document.createElement("canvas");
+      sprite.width = 128;
+      sprite.height = 128;
+      const spriteContext = getContext(sprite);
+      const center = 64;
+      const radius = 34;
+      spriteContext.filter = blurLevel > 0 ? `blur(${blurLevel * 0.75}px)` : "none";
+      spriteContext.shadowColor = strand === 0 ? "#d4ffff" : "#a8e9ef";
+      spriteContext.shadowBlur = 22;
+
+      const gradient = spriteContext.createRadialGradient(
+        center - radius * 0.28,
+        center - radius * 0.3,
+        radius * 0.08,
+        center,
+        center,
+        radius,
+      );
+      gradient.addColorStop(0, "rgba(247,255,255,.82)");
+      gradient.addColorStop(0.34, "rgba(207,249,249,.34)");
+      gradient.addColorStop(0.78, "rgba(104,189,202,.15)");
+      gradient.addColorStop(1, "rgba(190,245,246,.04)");
+      spriteContext.beginPath();
+      spriteContext.arc(center, center, radius, 0, TAU);
+      spriteContext.fillStyle = gradient;
+      spriteContext.fill();
+      spriteContext.shadowBlur = 0;
+      spriteContext.strokeStyle = "rgba(225,255,255,.74)";
+      spriteContext.lineWidth = 1.25;
+      spriteContext.stroke();
+
+      spriteContext.strokeStyle = "rgba(210,252,252,.24)";
+      spriteContext.lineWidth = 0.85;
+      spriteContext.beginPath();
+      spriteContext.ellipse(center, center, radius * 0.43, radius, 0, 0, TAU);
+      spriteContext.stroke();
+      spriteContext.beginPath();
+      spriteContext.ellipse(center, center, radius * 0.72, radius, 0, 0, TAU);
+      spriteContext.stroke();
+      spriteContext.beginPath();
+      spriteContext.ellipse(center, center, radius, radius * 0.42, 0, 0, TAU);
+      spriteContext.stroke();
+
+      spriteContext.fillStyle = "#e9ffff";
+      for (const dot of sphereDots) {
+        spriteContext.beginPath();
+        spriteContext.arc(
+          center + dot.x * radius * 0.82,
+          center + dot.y * radius * 0.82,
+          1.15,
+          0,
+          TAU,
+        );
+        spriteContext.globalAlpha = 0.3 + (0.5 + dot.z * 0.5) * 0.55;
+        spriteContext.fill();
+      }
+      spriteContext.globalAlpha = 1;
+      spriteContext.filter = "none";
+      return sprite;
+    }
+
+    function createRungDotSprite() {
+      const sprite = document.createElement("canvas");
+      sprite.width = 24;
+      sprite.height = 32;
+      const spriteContext = getContext(sprite);
+      const gradient = spriteContext.createRadialGradient(12, 16, 0, 12, 16, 10);
+      gradient.addColorStop(0, "rgba(242,255,255,1)");
+      gradient.addColorStop(0.35, "rgba(199,250,252,.75)");
+      gradient.addColorStop(1, "rgba(127,219,228,0)");
+      spriteContext.fillStyle = gradient;
+      spriteContext.fillRect(2, 4, 20, 24);
+      return sprite;
+    }
+
+    function createGlowSprite() {
+      const sprite = document.createElement("canvas");
+      sprite.width = 256;
+      sprite.height = 256;
+      const spriteContext = getContext(sprite);
+      const gradient = spriteContext.createRadialGradient(128, 128, 0, 128, 128, 128);
+      gradient.addColorStop(0, "rgba(73, 178, 195, .56)");
+      gradient.addColorStop(0.42, "rgba(29, 113, 133, .28)");
+      gradient.addColorStop(1, "rgba(3, 22, 29, 0)");
+      spriteContext.fillStyle = gradient;
+      spriteContext.fillRect(0, 0, 256, 256);
+      return sprite;
+    }
+
+    const beadSprites = Array.from({ length: 2 }, (_, strand) =>
+      Array.from({ length: 4 }, (_, blurLevel) => createBeadSprite(strand, blurLevel)),
+    );
+    const rungDotSprite = createRungDotSprite();
+    const glowSprite = createGlowSprite();
+
+    const networkConnections: Array<{ a: number; b: number; strength: number }> = [];
+    const seenConnections = new Set<string>();
+    nodes.forEach((node, index) => {
+      const nearest = nodes
+        .map((candidate, candidateIndex) => ({
+          index: candidateIndex,
+          distance: candidateIndex === index
+            ? Number.POSITIVE_INFINITY
+            : Math.hypot(node.x - candidate.x, node.y - candidate.y),
+        }))
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 3);
+      for (const connection of nearest) {
+        if (connection.distance > 0.22) continue;
+        const a = Math.min(index, connection.index);
+        const b = Math.max(index, connection.index);
+        const key = `${a}:${b}`;
+        if (seenConnections.has(key)) continue;
+        seenConnections.add(key);
+        networkConnections.push({ a, b, strength: 1 - connection.distance / 0.22 });
+      }
+    });
+
     let width = 1;
     let height = 1;
     let dpr = 1;
     let frame = 0;
     let running = true;
     let reducedMotion = motionQuery.matches;
+    let previousFrame = 0;
+    let frameInterval = 1000 / 45;
     const pointer = {
       x: 0.5,
       y: 0.5,
@@ -88,7 +209,8 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       const bounds = rootElement.getBoundingClientRect();
       width = Math.max(1, bounds.width);
       height = Math.max(1, bounds.height);
-      dpr = Math.min(window.devicePixelRatio || 1, 1.7);
+      dpr = Math.min(window.devicePixelRatio || 1, width < 760 ? 1 : 1.2);
+      frameInterval = 1000 / (width < 760 ? 32 : 45);
       canvasElement.width = Math.round(width * dpr);
       canvasElement.height = Math.round(height * dpr);
       canvasElement.style.width = `${width}px`;
@@ -139,13 +261,8 @@ export function DnaBackground({ className = "" }: { className?: string }) {
         const x = width * cloud.x + driftX;
         const y = height * cloud.y + driftY;
         const radius = Math.max(width, height) * cloud.r;
-        const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-        gradient.addColorStop(0, `rgba(49, 151, 169, ${cloud.a})`);
-        gradient.addColorStop(0.42, `rgba(23, 100, 119, ${cloud.a * 0.55})`);
-        gradient.addColorStop(1, "rgba(3, 22, 29, 0)");
-        context.fillStyle = gradient;
-        context.globalAlpha = 1;
-        context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+        context.globalAlpha = cloud.a * 1.7;
+        context.drawImage(glowSprite, x - radius, y - radius, radius * 2, radius * 2);
       }
     }
 
@@ -170,22 +287,13 @@ export function DnaBackground({ className = "" }: { className?: string }) {
     function drawNetwork(time: number) {
       const positions = nodes.map((node) => networkPosition(node, time));
       context.lineWidth = 0.65;
-      for (let i = 0; i < nodes.length; i += 1) {
-        let connections = 0;
-        for (let j = i + 1; j < nodes.length && connections < 4; j += 1) {
-          const dx = positions[i].x - positions[j].x;
-          const dy = positions[i].y - positions[j].y;
-          const distance = Math.hypot(dx, dy);
-          const limit = Math.min(width, height) * 0.19;
-          if (distance > limit) continue;
-          context.beginPath();
-          context.moveTo(positions[i].x, positions[i].y);
-          context.lineTo(positions[j].x, positions[j].y);
-          context.strokeStyle = "#8ed4dd";
-          context.globalAlpha = (1 - distance / limit) * 0.16 * nodes[i].z;
-          context.stroke();
-          connections += 1;
-        }
+      for (const connection of networkConnections) {
+        context.beginPath();
+        context.moveTo(positions[connection.a].x, positions[connection.a].y);
+        context.lineTo(positions[connection.b].x, positions[connection.b].y);
+        context.strokeStyle = "#8ed4dd";
+        context.globalAlpha = connection.strength * 0.18 * nodes[connection.a].z;
+        context.stroke();
       }
 
       for (let i = 0; i < nodes.length; i += 1) {
@@ -220,74 +328,21 @@ export function DnaBackground({ className = "" }: { className?: string }) {
         const scale = start.scale + (end.scale - start.scale) * progress;
         const depth = start.z + (end.z - start.z) * progress;
         const focus = clamp(1 - Math.abs(depth) / 620, 0.18, 1);
-        context.beginPath();
-        context.ellipse(x, y, 1.1 * scale, 2.15 * scale, 0, 0, TAU);
-        context.fillStyle = "#e5ffff";
         context.globalAlpha = (0.22 + focus * 0.62) * clamp(scale, 0.45, 1.25);
-        context.shadowColor = "#bdfaff";
-        context.shadowBlur = 5 * scale;
-        context.fill();
+        const width = clamp(4.6 * scale, 2.6, 7.5);
+        const height = width * 1.45;
+        context.drawImage(rungDotSprite, x - width / 2, y - height / 2, width, height);
       }
-      context.shadowBlur = 0;
     }
 
     function drawBead(point: Projected, strand: number) {
       const depthFocus = clamp(1 - Math.abs(point.z) / 720, 0.14, 1);
       const radius = clamp(14.5 * point.scale, 5.8, 30);
-      const blur = clamp(Math.abs(point.z) / 330 - 0.25, 0, 2.8);
-      context.save();
-      context.filter = blur > 0.15 ? `blur(${blur}px)` : "none";
       context.globalAlpha = 0.3 + depthFocus * 0.7;
-      context.shadowColor = strand === 0 ? "#d4ffff" : "#a8e9ef";
-      context.shadowBlur = 10 + radius * 0.8;
-
-      const gradient = context.createRadialGradient(
-        point.x - radius * 0.28,
-        point.y - radius * 0.3,
-        radius * 0.08,
-        point.x,
-        point.y,
-        radius,
-      );
-      gradient.addColorStop(0, "rgba(247,255,255,.78)");
-      gradient.addColorStop(0.34, "rgba(207,249,249,.3)");
-      gradient.addColorStop(0.78, "rgba(104,189,202,.13)");
-      gradient.addColorStop(1, "rgba(190,245,246,.04)");
-      context.beginPath();
-      context.arc(point.x, point.y, radius, 0, TAU);
-      context.fillStyle = gradient;
-      context.fill();
-      context.shadowBlur = 0;
-      context.strokeStyle = "rgba(225,255,255,.72)";
-      context.lineWidth = clamp(0.6 * point.scale, 0.35, 1.1);
-      context.stroke();
-
-      context.strokeStyle = "rgba(210,252,252,.22)";
-      context.lineWidth = 0.45;
-      context.beginPath();
-      context.ellipse(point.x, point.y, radius * 0.43, radius, 0, 0, TAU);
-      context.stroke();
-      context.beginPath();
-      context.ellipse(point.x, point.y, radius * 0.72, radius, 0, 0, TAU);
-      context.stroke();
-      context.beginPath();
-      context.ellipse(point.x, point.y, radius, radius * 0.42, 0, 0, TAU);
-      context.stroke();
-
-      context.fillStyle = "#e9ffff";
-      for (const dot of sphereDots) {
-        context.beginPath();
-        context.arc(
-          point.x + dot.x * radius * 0.82,
-          point.y + dot.y * radius * 0.82,
-          clamp(0.55 * point.scale, 0.3, 1.05),
-          0,
-          TAU,
-        );
-        context.globalAlpha = (0.12 + depthFocus * 0.55) * (0.5 + dot.z * 0.5);
-        context.fill();
-      }
-      context.restore();
+      const blurLevel = clamp(Math.round(Math.abs(point.z) / 210), 0, 3);
+      const sprite = beadSprites[strand][blurLevel];
+      const size = radius * 3.45;
+      context.drawImage(sprite, point.x - size / 2, point.y - size / 2, size, size);
     }
 
     function drawHelix(time: number) {
@@ -346,13 +401,8 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       const x = pointer.x * width;
       const y = pointer.y * height;
       const radius = Math.min(290, Math.max(180, width * 0.2));
-      const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-      gradient.addColorStop(0, "rgba(113, 230, 237, .075)");
-      gradient.addColorStop(0.55, "rgba(31, 127, 148, .025)");
-      gradient.addColorStop(1, "rgba(3, 22, 29, 0)");
-      context.fillStyle = gradient;
-      context.globalAlpha = pointer.energy;
-      context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      context.globalAlpha = pointer.energy * 0.22;
+      context.drawImage(glowSprite, x - radius, y - radius, radius * 2, radius * 2);
     }
 
     function draw(time: number) {
@@ -368,12 +418,14 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       drawPointerGlow();
       drawHelix(time);
       context.globalAlpha = 1;
-      context.filter = "none";
     }
 
     function animate(time: number) {
       if (!running || reducedMotion || document.hidden) return;
-      draw(time);
+      if (time - previousFrame >= frameInterval) {
+        previousFrame = time - ((time - previousFrame) % frameInterval);
+        draw(time);
+      }
       frame = window.requestAnimationFrame(animate);
     }
 

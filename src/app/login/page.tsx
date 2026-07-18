@@ -1,8 +1,10 @@
 import { signIn } from "@/auth";
+import { DnaBackground } from "@/components/dna-background";
 
 export default function LoginPage() {
-  return <main className="grid min-h-screen place-items-center bg-slate-950 px-6">
-    <section className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+  return <main className="relative isolate grid min-h-screen overflow-hidden place-items-center bg-[#020817] px-6">
+    <DnaBackground className="-z-20" />
+    <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/95 p-8 shadow-[0_30px_100px_rgba(0,0,0,0.48)] backdrop-blur-xl">
       <p className="text-sm font-medium text-blue-700">Innovation Hub</p>
       <h1 className="mt-3 text-3xl font-semibold">Sicher anmelden</h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">Melden Sie sich über das zentrale Unternehmenskonto an. Bei der ersten Anmeldung wird automatisch die Rolle Mitarbeiter vergeben.</p>

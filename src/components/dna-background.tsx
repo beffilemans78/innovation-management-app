@@ -77,7 +77,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       const center = 64;
       const radius = 34;
       spriteContext.filter = blurLevel > 0 ? `blur(${blurLevel * 0.75}px)` : "none";
-      spriteContext.shadowColor = strand === 0 ? "#d4ffff" : "#a8e9ef";
+      spriteContext.shadowColor = strand === 0 ? "#20a7b8" : "#4bb7c4";
       spriteContext.shadowBlur = 22;
 
       const gradient = spriteContext.createRadialGradient(
@@ -88,20 +88,20 @@ export function DnaBackground({ className = "" }: { className?: string }) {
         center,
         radius,
       );
-      gradient.addColorStop(0, "rgba(247,255,255,.82)");
-      gradient.addColorStop(0.34, "rgba(207,249,249,.34)");
-      gradient.addColorStop(0.78, "rgba(104,189,202,.15)");
-      gradient.addColorStop(1, "rgba(190,245,246,.04)");
+      gradient.addColorStop(0, "rgba(255,255,255,.96)");
+      gradient.addColorStop(0.34, "rgba(170,229,234,.42)");
+      gradient.addColorStop(0.78, "rgba(37,139,155,.2)");
+      gradient.addColorStop(1, "rgba(8,101,119,.06)");
       spriteContext.beginPath();
       spriteContext.arc(center, center, radius, 0, TAU);
       spriteContext.fillStyle = gradient;
       spriteContext.fill();
       spriteContext.shadowBlur = 0;
-      spriteContext.strokeStyle = "rgba(225,255,255,.74)";
+      spriteContext.strokeStyle = "rgba(10,103,121,.74)";
       spriteContext.lineWidth = 1.25;
       spriteContext.stroke();
 
-      spriteContext.strokeStyle = "rgba(210,252,252,.24)";
+      spriteContext.strokeStyle = "rgba(13,112,129,.3)";
       spriteContext.lineWidth = 0.85;
       spriteContext.beginPath();
       spriteContext.ellipse(center, center, radius * 0.43, radius, 0, 0, TAU);
@@ -113,7 +113,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       spriteContext.ellipse(center, center, radius, radius * 0.42, 0, 0, TAU);
       spriteContext.stroke();
 
-      spriteContext.fillStyle = "#e9ffff";
+      spriteContext.fillStyle = "#08788c";
       for (const dot of sphereDots) {
         spriteContext.beginPath();
         spriteContext.arc(
@@ -137,9 +137,9 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       sprite.height = 32;
       const spriteContext = getContext(sprite);
       const gradient = spriteContext.createRadialGradient(12, 16, 0, 12, 16, 10);
-      gradient.addColorStop(0, "rgba(242,255,255,1)");
-      gradient.addColorStop(0.35, "rgba(199,250,252,.75)");
-      gradient.addColorStop(1, "rgba(127,219,228,0)");
+      gradient.addColorStop(0, "rgba(5,105,124,1)");
+      gradient.addColorStop(0.35, "rgba(25,145,162,.72)");
+      gradient.addColorStop(1, "rgba(75,183,196,0)");
       spriteContext.fillStyle = gradient;
       spriteContext.fillRect(2, 4, 20, 24);
       return sprite;
@@ -151,9 +151,9 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       sprite.height = 256;
       const spriteContext = getContext(sprite);
       const gradient = spriteContext.createRadialGradient(128, 128, 0, 128, 128, 128);
-      gradient.addColorStop(0, "rgba(73, 178, 195, .56)");
-      gradient.addColorStop(0.42, "rgba(29, 113, 133, .28)");
-      gradient.addColorStop(1, "rgba(3, 22, 29, 0)");
+      gradient.addColorStop(0, "rgba(92, 205, 219, .24)");
+      gradient.addColorStop(0.42, "rgba(172, 231, 237, .15)");
+      gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
       spriteContext.fillStyle = gradient;
       spriteContext.fillRect(0, 0, 256, 256);
       return sprite;
@@ -291,7 +291,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
         context.beginPath();
         context.moveTo(positions[connection.a].x, positions[connection.a].y);
         context.lineTo(positions[connection.b].x, positions[connection.b].y);
-        context.strokeStyle = "#8ed4dd";
+        context.strokeStyle = "#147f92";
         context.globalAlpha = connection.strength * 0.18 * nodes[connection.a].z;
         context.stroke();
       }
@@ -301,7 +301,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
         const position = positions[i];
         context.beginPath();
         context.arc(position.x, position.y, 0.55 + node.z * 1.25, 0, TAU);
-        context.fillStyle = "#c6f5f5";
+        context.fillStyle = "#0d788c";
         context.globalAlpha = 0.16 + node.z * 0.34;
         context.fill();
       }
@@ -313,7 +313,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
         const y = particle.y * height + Math.cos(time * 0.00009 + particle.phase) * 13 * particle.z;
         context.beginPath();
         context.arc(x, y, particle.radius * particle.z, 0, TAU);
-        context.fillStyle = "#d8ffff";
+        context.fillStyle = "#167f92";
         context.globalAlpha = 0.05 + particle.z * 0.28;
         context.fill();
       }
@@ -386,7 +386,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
           if (index === 0) context.moveTo(point.x, point.y);
           else context.lineTo(point.x, point.y);
         });
-        context.strokeStyle = "#c7f8f7";
+        context.strokeStyle = "#0b7285";
         context.globalAlpha = 0.08;
         context.lineWidth = 1.1;
         context.stroke();

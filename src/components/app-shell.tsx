@@ -7,7 +7,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
     <div className="relative isolate min-h-screen overflow-hidden bg-[#03161d] text-slate-950">
       <DnaBackground className="-z-20" />
       <div className="relative z-10 flex min-h-screen flex-col">
-        <header className="border-b border-white/10 bg-[#041a22]/58 text-slate-100 backdrop-blur-xl">
+        <header className="border-b border-white/10 bg-[#041a22]/92 text-slate-100">
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
               <span className="grid size-8 place-items-center rounded-lg border border-sky-300/25 bg-sky-400/10 text-xs text-sky-200 shadow-[0_0_24px_rgba(56,189,248,0.12)]">IH</span>

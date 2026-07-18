@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #020817;
+  --foreground: #e7f4ff;
+
+  /* The canvas reads these tokens directly, so a theme can recolor it without JS changes. */
+  --dna-strand-primary: #55d7ff;
+  --dna-strand-secondary: #3478f6;
+  --dna-connector: #4b9bc8;
+  --dna-node: #d9f8ff;
+  --dna-particle: #7cb7d5;
 }
 
 @theme inline {
@@ -12,15 +19,28 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: rgb(56 189 248 / 28%);
+  color: #ffffff;
+}
+
+.dna-background-grid {
+  background-image:
+    linear-gradient(rgb(83 168 220 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(83 168 220 / 4%) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 78% 70% at 50% 50%, #000 8%, transparent 76%);
+}
+
+.dna-background-vignette {
+  background:
+    radial-gradient(circle at 72% 42%, rgb(10 81 140 / 10%), transparent 30%),
+    linear-gradient(90deg, rgb(2 8 23 / 88%) 0%, rgb(2 8 23 / 30%) 48%, rgb(2 8 23 / 72%) 100%),
+    linear-gradient(180deg, rgb(2 8 23 / 36%) 0%, transparent 24%, rgb(2 8 23 / 74%) 100%);
 }

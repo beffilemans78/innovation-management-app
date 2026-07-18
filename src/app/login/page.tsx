@@ -2,7 +2,7 @@ import { signIn } from "@/auth";
 import { DnaBackground } from "@/components/dna-background";
 
 export default function LoginPage() {
-  return <main className="relative isolate grid min-h-screen overflow-hidden place-items-center bg-[#020817] px-6">
+  return <main className="relative isolate grid min-h-screen overflow-hidden place-items-center bg-[#03161d] px-6">
     <DnaBackground className="-z-20" />
     <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/95 p-8 shadow-[0_30px_100px_rgba(0,0,0,0.48)] backdrop-blur-xl">
       <p className="text-sm font-medium text-blue-700">Innovation Hub</p>

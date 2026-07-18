@@ -2,39 +2,23 @@
 
 import { useEffect, useRef } from "react";
 
-type Point = {
+type Vec3 = { x: number; y: number; z: number };
+type Projected = Vec3 & { scale: number };
+type NetworkNode = {
   x: number;
   y: number;
-  depth: number;
-};
-
-type Palette = {
-  primary: string;
-  secondary: string;
-  connector: string;
-  node: string;
-  particle: string;
-};
-
-type HelixConfig = {
-  centerX: number;
-  centerY: number;
-  length: number;
-  radius: number;
-  slope: number;
-  turns: number;
-  speed: number;
+  z: number;
   phase: number;
-  opacity: number;
-  parallax: number;
+  speed: number;
 };
 
 const TAU = Math.PI * 2;
 
-function cssValue(styles: CSSStyleDeclaration, name: string, fallback: string) {
-  return styles.getPropertyValue(name).trim() || fallback;
+function getContext(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas 2D is required for the DNA background.");
+  return context;
 }
-
 function seededRandom(seed: number) {
   let value = seed >>> 0;
   return () => {
@@ -43,10 +27,8 @@ function seededRandom(seed: number) {
   };
 }
 
-function getCanvasContext(canvas: HTMLCanvasElement) {
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("A 2D canvas context is required for the DNA background.");
-  return context;
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 export function DnaBackground({ className = "" }: { className?: string }) {
@@ -57,334 +39,383 @@ export function DnaBackground({ className = "" }: { className?: string }) {
     const root = rootRef.current;
     const canvas = canvasRef.current;
     if (!root || !canvas) return;
+
     const rootElement: HTMLDivElement = root;
     const canvasElement: HTMLCanvasElement = canvas;
-    const context = getCanvasContext(canvasElement);
+    const context = getContext(canvasElement);
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const random = seededRandom(93017);
 
-    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const pointer = {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-      targetX: window.innerWidth / 2,
-      targetY: window.innerHeight / 2,
-      influence: 0,
-      targetInfluence: 0,
-      lastMove: 0,
-    };
-
-    const random = seededRandom(1837);
-    const particles = Array.from({ length: 88 }, () => ({
+    const nodes: NetworkNode[] = Array.from({ length: 68 }, () => ({
       x: random(),
       y: random(),
-      depth: 0.25 + random() * 0.75,
-      size: 0.45 + random() * 1.25,
-      drift: random() * TAU,
+      z: 0.25 + random() * 0.75,
+      phase: random() * TAU,
+      speed: 0.35 + random() * 0.75,
     }));
 
-    let width = 0;
-    let height = 0;
-    let dpr = 1;
-    let animationFrame = 0;
-    let running = true;
-    let reducedMotion = motionPreference.matches;
-    let palette: Palette = readPalette();
+    const dust = Array.from({ length: 104 }, () => ({
+      x: random(),
+      y: random(),
+      z: 0.2 + random() * 0.8,
+      phase: random() * TAU,
+      radius: 0.25 + random() * 1.2,
+    }));
 
-    function readPalette(): Palette {
-      const styles = getComputedStyle(rootElement);
-      return {
-        primary: cssValue(styles, "--dna-strand-primary", "#58d7ff"),
-        secondary: cssValue(styles, "--dna-strand-secondary", "#3b82f6"),
-        connector: cssValue(styles, "--dna-connector", "#4fa8d8"),
-        node: cssValue(styles, "--dna-node", "#d7f7ff"),
-        particle: cssValue(styles, "--dna-particle", "#70a9c9"),
-      };
-    }
+    const sphereDots = Array.from({ length: 20 }, (_, index) => {
+      const y = 1 - (index / 19) * 2;
+      const radial = Math.sqrt(Math.max(0, 1 - y * y));
+      const angle = index * 2.399963;
+      return { x: Math.cos(angle) * radial, y, z: Math.sin(angle) * radial };
+    }).filter((point) => point.z > -0.2);
+
+    let width = 1;
+    let height = 1;
+    let dpr = 1;
+    let frame = 0;
+    let running = true;
+    let reducedMotion = motionQuery.matches;
+    const pointer = {
+      x: 0.5,
+      y: 0.5,
+      targetX: 0.5,
+      targetY: 0.5,
+      energy: 0,
+      lastMove: 0,
+    };
 
     function resize() {
       const bounds = rootElement.getBoundingClientRect();
       width = Math.max(1, bounds.width);
       height = Math.max(1, bounds.height);
-      dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.7);
       canvasElement.width = Math.round(width * dpr);
       canvasElement.height = Math.round(height * dpr);
       canvasElement.style.width = `${width}px`;
       canvasElement.style.height = `${height}px`;
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
-
       if (reducedMotion) draw(0);
     }
 
-    function distort(point: Point, parallax: number): Point {
-      const normalizedX = pointer.x / Math.max(width, 1) - 0.5;
-      const normalizedY = pointer.y / Math.max(height, 1) - 0.5;
-      let x = point.x + normalizedX * point.depth * parallax;
-      let y = point.y + normalizedY * point.depth * parallax * 0.55;
+    function project(point: Vec3, yaw: number, pitch: number): Projected {
+      const lean = 0.14;
+      const cosLean = Math.cos(lean);
+      const sinLean = Math.sin(lean);
+      const xLean = point.x * cosLean - point.y * sinLean;
+      const yLean = point.x * sinLean + point.y * cosLean;
 
-      const dx = x - pointer.x;
-      const dy = y - pointer.y;
+      const cosYaw = Math.cos(yaw);
+      const sinYaw = Math.sin(yaw);
+      const xYaw = xLean * cosYaw + point.z * sinYaw;
+      const zYaw = -xLean * sinYaw + point.z * cosYaw;
+
+      const cosPitch = Math.cos(pitch);
+      const sinPitch = Math.sin(pitch);
+      const yPitch = yLean * cosPitch - zYaw * sinPitch;
+      const zPitch = yLean * sinPitch + zYaw * cosPitch;
+
+      const cameraDistance = Math.max(600, width * 0.62);
+      const scale = cameraDistance / Math.max(260, cameraDistance + zPitch);
+      const centerX = width * (width < 760 ? 0.5 : 0.31);
+      const centerY = height * 0.52;
+      return {
+        x: centerX + xYaw * scale,
+        y: centerY + yPitch * scale,
+        z: zPitch,
+        scale,
+      };
+    }
+
+    function drawFog(time: number) {
+      const clouds = [
+        { x: 0.16, y: 0.25, r: 0.34, a: 0.24, p: 0.2 },
+        { x: 0.5, y: 0.68, r: 0.42, a: 0.17, p: 1.8 },
+        { x: 0.83, y: 0.25, r: 0.36, a: 0.13, p: 3.1 },
+        { x: 0.72, y: 0.86, r: 0.3, a: 0.11, p: 4.7 },
+      ];
+      for (const cloud of clouds) {
+        const driftX = Math.sin(time * 0.00008 + cloud.p) * width * 0.035;
+        const driftY = Math.cos(time * 0.00006 + cloud.p) * height * 0.025;
+        const x = width * cloud.x + driftX;
+        const y = height * cloud.y + driftY;
+        const radius = Math.max(width, height) * cloud.r;
+        const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, `rgba(49, 151, 169, ${cloud.a})`);
+        gradient.addColorStop(0.42, `rgba(23, 100, 119, ${cloud.a * 0.55})`);
+        gradient.addColorStop(1, "rgba(3, 22, 29, 0)");
+        context.fillStyle = gradient;
+        context.globalAlpha = 1;
+        context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      }
+    }
+
+    function networkPosition(node: NetworkNode, time: number) {
+      const drift = time * 0.00005 * node.speed;
+      let x = node.x * width + Math.sin(drift + node.phase) * 22 * node.z;
+      let y = node.y * height + Math.cos(drift * 0.8 + node.phase) * 16 * node.z;
+      x -= (pointer.x - 0.5) * 34 * node.z;
+      y -= (pointer.y - 0.5) * 22 * node.z;
+
+      const dx = x - pointer.x * width;
+      const dy = y - pointer.y * height;
       const distance = Math.hypot(dx, dy) || 1;
-      const interactionRadius = Math.min(250, Math.max(150, width * 0.16));
-
-      if (distance < interactionRadius && pointer.influence > 0.001) {
-        const force = (1 - distance / interactionRadius) ** 2 * pointer.influence;
-        x += (dx / distance) * force * 24;
-        y += (dy / distance) * force * 16;
+      if (distance < 190 && pointer.energy > 0.001) {
+        const force = (1 - distance / 190) ** 2 * pointer.energy;
+        x += (dx / distance) * force * 22;
+        y += (dy / distance) * force * 22;
       }
-
-      return { x, y, depth: point.depth };
+      return { x, y };
     }
 
-    function renderHelix(time: number, config: HelixConfig) {
-      const sampleCount = Math.min(96, Math.max(54, Math.round(width / 19)));
-      const first: Point[] = [];
-      const second: Point[] = [];
-      const centerX = width * config.centerX;
-      const centerY = height * config.centerY;
-      const radius = Math.min(width, height) * config.radius;
-      const length = width * config.length;
-      const phase = config.phase + time * config.speed;
-
-      for (let index = 0; index < sampleCount; index += 1) {
-        const progress = index / (sampleCount - 1);
-        const position = progress - 0.5;
-        const angle = progress * config.turns * TAU + phase;
-        const pathWave = Math.sin(progress * Math.PI * 1.35 + phase * 0.14) * height * 0.018;
-        const baseX = centerX + position * length;
-        const baseY = centerY + position * height * config.slope + pathWave;
-        const vertical = Math.cos(angle) * radius;
-        const depth = Math.sin(angle);
-        const perspective = 1 + depth * 0.12;
-
-        first.push(distort({
-          x: baseX + depth * radius * 0.16,
-          y: baseY + vertical * perspective,
-          depth,
-        }, config.parallax));
-        second.push(distort({
-          x: baseX - depth * radius * 0.16,
-          y: baseY - vertical * perspective,
-          depth: -depth,
-        }, config.parallax));
+    function drawNetwork(time: number) {
+      const positions = nodes.map((node) => networkPosition(node, time));
+      context.lineWidth = 0.65;
+      for (let i = 0; i < nodes.length; i += 1) {
+        let connections = 0;
+        for (let j = i + 1; j < nodes.length && connections < 4; j += 1) {
+          const dx = positions[i].x - positions[j].x;
+          const dy = positions[i].y - positions[j].y;
+          const distance = Math.hypot(dx, dy);
+          const limit = Math.min(width, height) * 0.19;
+          if (distance > limit) continue;
+          context.beginPath();
+          context.moveTo(positions[i].x, positions[i].y);
+          context.lineTo(positions[j].x, positions[j].y);
+          context.strokeStyle = "#8ed4dd";
+          context.globalAlpha = (1 - distance / limit) * 0.16 * nodes[i].z;
+          context.stroke();
+          connections += 1;
+        }
       }
 
-      context.save();
-      context.lineCap = "round";
-      context.lineJoin = "round";
-
-      // Base-pair rungs sit behind the two luminous strands.
-      for (let index = 0; index < sampleCount; index += 2) {
-        const start = first[index];
-        const end = second[index];
-        const depth = (start.depth + 1) / 2;
+      for (let i = 0; i < nodes.length; i += 1) {
+        const node = nodes[i];
+        const position = positions[i];
         context.beginPath();
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
-        context.strokeStyle = palette.connector;
-        context.globalAlpha = config.opacity * (0.12 + depth * 0.2);
-        context.lineWidth = 0.55 + depth * 0.7;
-        context.stroke();
-      }
-
-      drawStrand(first, palette.primary, config.opacity);
-      drawStrand(second, palette.secondary, config.opacity);
-
-      for (let index = 0; index < sampleCount; index += 3) {
-        drawNode(first[index], config.opacity);
-        drawNode(second[index], config.opacity);
-      }
-
-      context.restore();
-    }
-
-    function drawStrand(points: Point[], color: string, opacity: number) {
-      context.shadowColor = color;
-      context.shadowBlur = 13;
-
-      for (let index = 1; index < points.length; index += 1) {
-        const start = points[index - 1];
-        const end = points[index];
-        const depth = ((start.depth + end.depth) * 0.5 + 1) / 2;
-        context.beginPath();
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
-        context.strokeStyle = color;
-        context.globalAlpha = opacity * (0.24 + depth * 0.66);
-        context.lineWidth = 0.8 + depth * 1.35;
-        context.stroke();
-      }
-
-      context.shadowBlur = 0;
-    }
-
-    function drawNode(point: Point, opacity: number) {
-      const depth = (point.depth + 1) / 2;
-      context.beginPath();
-      context.arc(point.x, point.y, 0.65 + depth * 1.35, 0, TAU);
-      context.fillStyle = palette.node;
-      context.globalAlpha = opacity * (0.24 + depth * 0.7);
-      context.shadowColor = palette.primary;
-      context.shadowBlur = 8;
-      context.fill();
-      context.shadowBlur = 0;
-    }
-
-    function drawParticles(time: number) {
-      for (const particle of particles) {
-        const driftX = Math.sin(time * 0.00011 + particle.drift) * 16 * particle.depth;
-        const driftY = Math.cos(time * 0.00008 + particle.drift) * 11 * particle.depth;
-        const pointerX = (pointer.x / Math.max(width, 1) - 0.5) * particle.depth * -17;
-        const pointerY = (pointer.y / Math.max(height, 1) - 0.5) * particle.depth * -11;
-        const x = particle.x * width + driftX + pointerX;
-        const y = particle.y * height + driftY + pointerY;
-
-        context.beginPath();
-        context.arc(x, y, particle.size * particle.depth, 0, TAU);
-        context.fillStyle = palette.particle;
-        context.globalAlpha = 0.08 + particle.depth * 0.18;
+        context.arc(position.x, position.y, 0.55 + node.z * 1.25, 0, TAU);
+        context.fillStyle = "#c6f5f5";
+        context.globalAlpha = 0.16 + node.z * 0.34;
         context.fill();
       }
     }
 
-    function drawPointerLight() {
-      if (pointer.influence < 0.002) return;
-      const radius = Math.min(300, Math.max(180, width * 0.2));
+    function drawDust(time: number) {
+      for (const particle of dust) {
+        const x = particle.x * width + Math.sin(time * 0.00012 + particle.phase) * 18 * particle.z;
+        const y = particle.y * height + Math.cos(time * 0.00009 + particle.phase) * 13 * particle.z;
+        context.beginPath();
+        context.arc(x, y, particle.radius * particle.z, 0, TAU);
+        context.fillStyle = "#d8ffff";
+        context.globalAlpha = 0.05 + particle.z * 0.28;
+        context.fill();
+      }
+    }
+
+    function drawDottedRung(start: Projected, end: Projected) {
+      const dotCount = 11;
+      for (let index = 1; index < dotCount; index += 1) {
+        const progress = index / dotCount;
+        const x = start.x + (end.x - start.x) * progress;
+        const y = start.y + (end.y - start.y) * progress;
+        const scale = start.scale + (end.scale - start.scale) * progress;
+        const depth = start.z + (end.z - start.z) * progress;
+        const focus = clamp(1 - Math.abs(depth) / 620, 0.18, 1);
+        context.beginPath();
+        context.ellipse(x, y, 1.1 * scale, 2.15 * scale, 0, 0, TAU);
+        context.fillStyle = "#e5ffff";
+        context.globalAlpha = (0.22 + focus * 0.62) * clamp(scale, 0.45, 1.25);
+        context.shadowColor = "#bdfaff";
+        context.shadowBlur = 5 * scale;
+        context.fill();
+      }
+      context.shadowBlur = 0;
+    }
+
+    function drawBead(point: Projected, strand: number) {
+      const depthFocus = clamp(1 - Math.abs(point.z) / 720, 0.14, 1);
+      const radius = clamp(14.5 * point.scale, 5.8, 30);
+      const blur = clamp(Math.abs(point.z) / 330 - 0.25, 0, 2.8);
+      context.save();
+      context.filter = blur > 0.15 ? `blur(${blur}px)` : "none";
+      context.globalAlpha = 0.3 + depthFocus * 0.7;
+      context.shadowColor = strand === 0 ? "#d4ffff" : "#a8e9ef";
+      context.shadowBlur = 10 + radius * 0.8;
+
       const gradient = context.createRadialGradient(
-        pointer.x,
-        pointer.y,
-        0,
-        pointer.x,
-        pointer.y,
+        point.x - radius * 0.28,
+        point.y - radius * 0.3,
+        radius * 0.08,
+        point.x,
+        point.y,
         radius,
       );
-      gradient.addColorStop(0, "rgba(56, 189, 248, 0.075)");
-      gradient.addColorStop(0.45, "rgba(37, 99, 235, 0.028)");
-      gradient.addColorStop(1, "rgba(3, 12, 30, 0)");
-      context.globalAlpha = pointer.influence;
+      gradient.addColorStop(0, "rgba(247,255,255,.78)");
+      gradient.addColorStop(0.34, "rgba(207,249,249,.3)");
+      gradient.addColorStop(0.78, "rgba(104,189,202,.13)");
+      gradient.addColorStop(1, "rgba(190,245,246,.04)");
+      context.beginPath();
+      context.arc(point.x, point.y, radius, 0, TAU);
       context.fillStyle = gradient;
-      context.fillRect(pointer.x - radius, pointer.y - radius, radius * 2, radius * 2);
+      context.fill();
+      context.shadowBlur = 0;
+      context.strokeStyle = "rgba(225,255,255,.72)";
+      context.lineWidth = clamp(0.6 * point.scale, 0.35, 1.1);
+      context.stroke();
+
+      context.strokeStyle = "rgba(210,252,252,.22)";
+      context.lineWidth = 0.45;
+      context.beginPath();
+      context.ellipse(point.x, point.y, radius * 0.43, radius, 0, 0, TAU);
+      context.stroke();
+      context.beginPath();
+      context.ellipse(point.x, point.y, radius * 0.72, radius, 0, 0, TAU);
+      context.stroke();
+      context.beginPath();
+      context.ellipse(point.x, point.y, radius, radius * 0.42, 0, 0, TAU);
+      context.stroke();
+
+      context.fillStyle = "#e9ffff";
+      for (const dot of sphereDots) {
+        context.beginPath();
+        context.arc(
+          point.x + dot.x * radius * 0.82,
+          point.y + dot.y * radius * 0.82,
+          clamp(0.55 * point.scale, 0.3, 1.05),
+          0,
+          TAU,
+        );
+        context.globalAlpha = (0.12 + depthFocus * 0.55) * (0.5 + dot.z * 0.5);
+        context.fill();
+      }
+      context.restore();
+    }
+
+    function drawHelix(time: number) {
+      const mobile = width < 760;
+      const rungs = mobile ? 38 : 44;
+      const span = height * (mobile ? 1.25 : 1.46);
+      const radius = Math.min(width, height) * (mobile ? 0.17 : 0.21);
+      const rotation = time * 0.00013;
+      const yaw = -0.08 + (pointer.x - 0.5) * 0.28;
+      const pitch = 0.13 + (pointer.y - 0.5) * 0.12;
+      const beads: Array<{ point: Projected; strand: number }> = [];
+      const strandA: Projected[] = [];
+      const strandB: Projected[] = [];
+
+      for (let index = 0; index < rungs; index += 1) {
+        const normalized = index / (rungs - 1) - 0.5;
+        const y = normalized * span;
+        const angle = normalized * TAU * 4.35 + rotation;
+        const curveX = Math.sin(normalized * 3.4 + time * 0.00007) * radius * 0.25;
+        const curveZ = Math.cos(normalized * 2.8 - time * 0.00005) * radius * 0.22;
+        const a = project({
+          x: curveX + Math.cos(angle) * radius,
+          y,
+          z: curveZ + Math.sin(angle) * radius,
+        }, yaw, pitch);
+        const b = project({
+          x: curveX - Math.cos(angle) * radius,
+          y,
+          z: curveZ - Math.sin(angle) * radius,
+        }, yaw, pitch);
+        strandA.push(a);
+        strandB.push(b);
+        drawDottedRung(a, b);
+        beads.push({ point: a, strand: 0 }, { point: b, strand: 1 });
+      }
+
+      // A faint continuous filament keeps the beaded strands visually coherent.
+      for (const strand of [strandA, strandB]) {
+        context.beginPath();
+        strand.forEach((point, index) => {
+          if (index === 0) context.moveTo(point.x, point.y);
+          else context.lineTo(point.x, point.y);
+        });
+        context.strokeStyle = "#c7f8f7";
+        context.globalAlpha = 0.08;
+        context.lineWidth = 1.1;
+        context.stroke();
+      }
+
+      beads.sort((a, b) => b.point.z - a.point.z);
+      for (const bead of beads) drawBead(bead.point, bead.strand);
+    }
+
+    function drawPointerGlow() {
+      if (pointer.energy < 0.002) return;
+      const x = pointer.x * width;
+      const y = pointer.y * height;
+      const radius = Math.min(290, Math.max(180, width * 0.2));
+      const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, "rgba(113, 230, 237, .075)");
+      gradient.addColorStop(0.55, "rgba(31, 127, 148, .025)");
+      gradient.addColorStop(1, "rgba(3, 22, 29, 0)");
+      context.fillStyle = gradient;
+      context.globalAlpha = pointer.energy;
+      context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
     }
 
     function draw(time: number) {
       context.clearRect(0, 0, width, height);
+      pointer.x += (pointer.targetX - pointer.x) * 0.045;
+      pointer.y += (pointer.targetY - pointer.y) * 0.045;
+      const targetEnergy = performance.now() - pointer.lastMove < 1500 ? 1 : 0;
+      pointer.energy += (targetEnergy - pointer.energy) * 0.04;
 
-      pointer.x += (pointer.targetX - pointer.x) * 0.055;
-      pointer.y += (pointer.targetY - pointer.y) * 0.055;
-      pointer.targetInfluence = performance.now() - pointer.lastMove < 1450 ? 1 : 0;
-      pointer.influence += (pointer.targetInfluence - pointer.influence) * 0.045;
-
-      drawPointerLight();
-      drawParticles(time);
-
-      renderHelix(time * 0.001, {
-        centerX: 0.2,
-        centerY: 0.17,
-        length: 0.72,
-        radius: 0.055,
-        slope: -0.22,
-        turns: 3.25,
-        speed: 0.18,
-        phase: 1.4,
-        opacity: 0.16,
-        parallax: 15,
-      });
-
-      renderHelix(time * 0.001, {
-        centerX: 0.55,
-        centerY: 0.54,
-        length: 1.22,
-        radius: 0.15,
-        slope: -0.38,
-        turns: 5.6,
-        speed: 0.34,
-        phase: 0.2,
-        opacity: 0.92,
-        parallax: 34,
-      });
-
-      renderHelix(time * 0.001, {
-        centerX: 0.84,
-        centerY: 0.88,
-        length: 0.58,
-        radius: 0.07,
-        slope: -0.28,
-        turns: 2.8,
-        speed: -0.16,
-        phase: 2.1,
-        opacity: 0.1,
-        parallax: 12,
-      });
-
+      drawFog(time);
+      drawNetwork(time);
+      drawDust(time);
+      drawPointerGlow();
+      drawHelix(time);
       context.globalAlpha = 1;
+      context.filter = "none";
     }
 
     function animate(time: number) {
-      if (!running || reducedMotion) return;
+      if (!running || reducedMotion || document.hidden) return;
       draw(time);
-      animationFrame = window.requestAnimationFrame(animate);
+      frame = window.requestAnimationFrame(animate);
     }
 
-    function startAnimation() {
-      window.cancelAnimationFrame(animationFrame);
-      if (running && !reducedMotion && !document.hidden) {
-        animationFrame = window.requestAnimationFrame(animate);
-      } else if (reducedMotion) {
-        draw(0);
-      }
+    function restart() {
+      window.cancelAnimationFrame(frame);
+      if (reducedMotion) draw(0);
+      else if (!document.hidden) frame = window.requestAnimationFrame(animate);
     }
 
     function handlePointerMove(event: PointerEvent) {
-      pointer.targetX = event.clientX;
-      pointer.targetY = event.clientY;
+      const bounds = rootElement.getBoundingClientRect();
+      pointer.targetX = clamp((event.clientX - bounds.left) / width, 0, 1);
+      pointer.targetY = clamp((event.clientY - bounds.top) / height, 0, 1);
       pointer.lastMove = performance.now();
-      pointer.targetInfluence = 1;
     }
 
     function handleMotionChange(event: MediaQueryListEvent) {
       reducedMotion = event.matches;
-      startAnimation();
-    }
-
-    function handleVisibilityChange() {
-      startAnimation();
+      restart();
     }
 
     const resizeObserver = new ResizeObserver(resize);
-    const themeObserver = new MutationObserver(() => {
-      palette = readPalette();
-      if (reducedMotion) draw(0);
-    });
-
     resizeObserver.observe(rootElement);
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "style"],
-    });
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    motionPreference.addEventListener("change", handleMotionChange);
-
+    document.addEventListener("visibilitychange", restart);
+    motionQuery.addEventListener("change", handleMotionChange);
     resize();
-    startAnimation();
+    restart();
 
     return () => {
       running = false;
-      window.cancelAnimationFrame(animationFrame);
+      window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
-      themeObserver.disconnect();
       window.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      motionPreference.removeEventListener("change", handleMotionChange);
+      document.removeEventListener("visibilitychange", restart);
+      motionQuery.removeEventListener("change", handleMotionChange);
     };
   }, []);
 
   return (
-    <div
-      ref={rootRef}
-      aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
-    >
+    <div ref={rootRef} aria-hidden="true" className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
-      <div className="dna-background-grid absolute inset-0" />
       <div className="dna-background-vignette absolute inset-0" />
     </div>
   );

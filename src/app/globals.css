@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #03161d;
-  --foreground: #e8fbfc;
+  --background: #ffffff;
+  --foreground: #0f172a;
 
   /* The canvas reads these tokens directly, so a theme can recolor it without JS changes. */
-  --dna-strand-primary: #55d7ff;
-  --dna-strand-secondary: #3478f6;
-  --dna-connector: #4b9bc8;
-  --dna-node: #d9f8ff;
-  --dna-particle: #7cb7d5;
+  --dna-strand-primary: #08788c;
+  --dna-strand-secondary: #20a7b8;
+  --dna-connector: #147f92;
+  --dna-node: #0d788c;
+  --dna-particle: #167f92;
 }
 
 @theme inline {
@@ -27,12 +27,12 @@ body {
 
 ::selection {
   background: rgb(56 189 248 / 28%);
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .dna-background-vignette {
   background:
-    radial-gradient(ellipse 46% 70% at 28% 52%, transparent 8%, rgb(2 18 24 / 10%) 58%, rgb(2 16 22 / 34%) 100%),
-    linear-gradient(90deg, rgb(2 17 23 / 8%) 0%, rgb(2 17 23 / 5%) 46%, rgb(2 15 21 / 62%) 100%),
-    linear-gradient(180deg, rgb(2 16 22 / 25%) 0%, transparent 25%, rgb(2 15 21 / 72%) 100%);
+    radial-gradient(ellipse 46% 70% at 28% 52%, transparent 8%, rgb(255 255 255 / 8%) 58%, rgb(255 255 255 / 48%) 100%),
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 0%, rgb(255 255 255 / 8%) 46%, rgb(255 255 255 / 82%) 100%),
+    linear-gradient(180deg, rgb(255 255 255 / 16%) 0%, transparent 25%, rgb(255 255 255 / 76%) 100%);
 }

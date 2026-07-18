@@ -195,7 +195,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
     let running = true;
     let reducedMotion = motionQuery.matches;
     let previousFrame = 0;
-    let frameInterval = 1000 / 45;
+    let frameInterval = 0;
     const pointer = {
       x: 0.5,
       y: 0.5,
@@ -210,7 +210,7 @@ export function DnaBackground({ className = "" }: { className?: string }) {
       width = Math.max(1, bounds.width);
       height = Math.max(1, bounds.height);
       dpr = Math.min(window.devicePixelRatio || 1, width < 760 ? 1 : 1.2);
-      frameInterval = 1000 / (width < 760 ? 32 : 45);
+      frameInterval = width < 760 ? 1000 / 30 : 0;
       canvasElement.width = Math.round(width * dpr);
       canvasElement.height = Math.round(height * dpr);
       canvasElement.style.width = `${width}px`;
@@ -422,8 +422,10 @@ export function DnaBackground({ className = "" }: { className?: string }) {
 
     function animate(time: number) {
       if (!running || reducedMotion || document.hidden) return;
-      if (time - previousFrame >= frameInterval) {
-        previousFrame = time - ((time - previousFrame) % frameInterval);
+      if (frameInterval === 0 || time - previousFrame >= frameInterval) {
+        previousFrame = frameInterval === 0
+          ? time
+          : time - ((time - previousFrame) % frameInterval);
         draw(time);
       }
       frame = window.requestAnimationFrame(animate);

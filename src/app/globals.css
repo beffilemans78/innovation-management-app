@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020817;
-  --foreground: #e7f4ff;
+  --background: #03161d;
+  --foreground: #e8fbfc;
 
   /* The canvas reads these tokens directly, so a theme can recolor it without JS changes. */
   --dna-strand-primary: #55d7ff;
@@ -30,17 +30,9 @@ body {
   color: #ffffff;
 }
 
-.dna-background-grid {
-  background-image:
-    linear-gradient(rgb(83 168 220 / 4%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(83 168 220 / 4%) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse 78% 70% at 50% 50%, #000 8%, transparent 76%);
-}
-
 .dna-background-vignette {
   background:
-    radial-gradient(circle at 72% 42%, rgb(10 81 140 / 10%), transparent 30%),
-    linear-gradient(90deg, rgb(2 8 23 / 88%) 0%, rgb(2 8 23 / 30%) 48%, rgb(2 8 23 / 72%) 100%),
-    linear-gradient(180deg, rgb(2 8 23 / 36%) 0%, transparent 24%, rgb(2 8 23 / 74%) 100%);
+    radial-gradient(ellipse 46% 70% at 28% 52%, transparent 8%, rgb(2 18 24 / 10%) 58%, rgb(2 16 22 / 34%) 100%),
+    linear-gradient(90deg, rgb(2 17 23 / 8%) 0%, rgb(2 17 23 / 5%) 46%, rgb(2 15 21 / 62%) 100%),
+    linear-gradient(180deg, rgb(2 16 22 / 25%) 0%, transparent 25%, rgb(2 15 21 / 72%) 100%);
 }
